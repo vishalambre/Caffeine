@@ -1,100 +1,101 @@
 package com.vishal.caffeine.service
 
-import android.app.*
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.os.*
-import android.widget.Toast
 import androidx.core.app.NotificationCompat
 import com.vishal.caffeine.R
-import com.vishal.caffeine.constants.START_CAFFEINE
-import com.vishal.caffeine.constants.STOP_CAFFEINE
-import java.util.*
 
 class CaffeineService : Service() {
     lateinit var keepScreenOn: PowerManager.WakeLock
-    val CHANNEL: String = "Caffeine"
-    val NOTIFICATION_ID = 100
-    val handler: Handler = Handler()
+    private val CHANNEL: String = "Caffeine"
+    private val NOTIFICATION_ID = 100
     var countDownTimer: CountDownTimer? = null
+    var mTimerInterFace: TimerInterFace? = null
+
+    inner class QtBinder : Binder() {
+        fun getService(): CaffeineService = this@CaffeineService
+    }
+
+    interface TimerInterFace {
+        fun onTick(millisUntilFinished: Long)
+        fun onFinish()
+    }
 
     override fun onCreate() {
         super.onCreate()
+        setupWakeLock()
+    }
+
+    private fun setupWakeLock() {
         val wake: PowerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
         keepScreenOn =
             wake.newWakeLock(PowerManager.FULL_WAKE_LOCK, CaffeineService::class.java.simpleName)
         keepScreenOn.setReferenceCounted(false)
     }
 
-
-    override fun onDestroy() {
-        super.onDestroy()
-    }
-
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (intent?.action.equals(START_CAFFEINE))
-            startCaffeine()
-        else stopCaffeine()
-        return START_NOT_STICKY
-    }
-
     override fun onBind(intent: Intent?): IBinder? {
-        return null
+        return QtBinder()
     }
 
     private fun showNotification() {
         createNotificationChannel()
-        handler.postDelayed(Runnable { stopCaffeine() }, 5 * 60 * 1000)
         startForeground(NOTIFICATION_ID, prepareNotification())
     }
 
-    private fun stopCaffeine() {
-        Toast.makeText(this, "Stop caffeine called", Toast.LENGTH_SHORT).show()
-        keepScreenOn.release()
-        stopSelf()
+    fun stopCaffeine() {
+        countDownTimer?.apply {
+            cancel()
+            onFinish()
+        }
+        releaseWakeLockAndStopForeground()
     }
 
-    private fun startCaffeine() {
-        Toast.makeText(this, "Start caffeine called", Toast.LENGTH_SHORT).show()
+    fun releaseWakeLockAndStopForeground() {
+        keepScreenOn.release()
+        stopForeground(true)
+    }
+
+    fun startCaffeine() {
         keepScreenOn.acquire()
-        countDownTimer?.cancel()
-        setCountDownTimer(5*60*1000)
         showNotification()
     }
 
+    fun updateCaffeineTimer(timerSeconds: Long) {
+        countDownTimer?.cancel()
+        setCountDownTimer(timerSeconds)
+    }
+
     private fun setCountDownTimer(timerSeconds: Long) {
-         countDownTimer = object : CountDownTimer(timerSeconds, 1000) {
+        countDownTimer = object : CountDownTimer(timerSeconds, 1000) {
             override fun onFinish() {
-                stopCaffeine()
+                releaseWakeLockAndStopForeground()
+                mTimerInterFace?.onFinish()
             }
 
             override fun onTick(millisUntilFinished: Long) {
+                mTimerInterFace?.onTick(millisUntilFinished)
             }
 
         }
+        countDownTimer?.start()
     }
 
+    /*
+    Helper functions related to notification
+     */
     private fun prepareNotification(): Notification {
-        val notification = NotificationCompat.Builder(this, CHANNEL)
+        return NotificationCompat.Builder(this, CHANNEL)
             .setSmallIcon(R.drawable.icon_coffee)
             .setContentTitle("Caffeine")
-            .setContentText("Click to turn off caffeine")
+            .setContentText("Caffeine is running")
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setOngoing(true)
-//            .setContentIntent(getPendingIntent())
             .build()
-
-        return notification
-    }
-
-    private fun getPendingIntent(): PendingIntent {
-        return PendingIntent.getService(
-            this,
-            1,
-            Intent(this, CaffeineService::class.java).apply { action = STOP_CAFFEINE },
-            PendingIntent.FLAG_ONE_SHOT
-        )
-
     }
 
     private fun createNotificationChannel() {

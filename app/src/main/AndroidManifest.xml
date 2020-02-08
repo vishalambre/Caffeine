@@ -2,6 +2,7 @@
     package="com.vishal.caffeine">
 
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
@@ -12,7 +13,7 @@
         <service
             android:name=".service.QtService"
             android:icon="@drawable/icon_coffee"
-            android:label="QTService"
+            android:label="Caffeine"
             android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
             <intent-filter>
                 <action android:name="android.service.quicksettings.action.QS_TILE" />
