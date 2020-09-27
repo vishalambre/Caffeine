@@ -4,7 +4,6 @@ import android.content.*
 import android.os.IBinder
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
-import android.util.Log
 import com.vishal.caffeine.R
 import com.vishal.caffeine.constants.*
 import com.vishal.caffeine.toMilliSeconds
